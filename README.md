@@ -1,4 +1,4 @@
-# devops-project: Helm Chart, Tekton Pipelines and ArgoCD Apps
+# DevOps Project: Helm Chart, Tekton Pipelines and ArgoCD Apps
 
 <p align="center">
   <img src="devops-project.png" alt="devops-project">
