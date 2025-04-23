@@ -1,0 +1,28 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: clone-task
+  namespace: devops
+spec:
+  params:
+    - name: TASK_IMAGE
+      description: The container image to run the task
+      type: string
+    - name: REPO_DIR
+      description: The name of the directory to clone the repo into.
+      type: string
+    - name: BRANCH
+      description: The branch of the repository to clone.
+      type: string
+  steps:
+  - name: clone-task
+    image: $(params.TASK_IMAGE)
+    script: |
+      echo "# cloning $(params.REPO_DIR) repository using branch: $(params.BRANCH)"
+      git clone -b $(params.BRANCH) --single-branch "https://github.com/apps/$(params.REPO_DIR).git" "$(workspaces.output.path)/$(params.REPO_DIR)"
+    securityContext:
+      runAsUser: 0
+    workingDir: $(workspaces.output.path)/$(params.REPO_DIR)
+  workspaces:
+  - description: Persistent storage for cloning repository and transferring data.
+    name: output

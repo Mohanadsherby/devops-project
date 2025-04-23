@@ -1,0 +1,31 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  annotations:
+    chains.tekton.dev/signed: 'true'
+    pipeline.openshift.io/started-by: ocpdevops
+  name: frontend-service-pipeline-run-24
+  namespace: devops
+  labels:
+    tekton.dev/pipeline: frontend-service-pipeline
+spec:
+  pipelineRef:
+    name: frontend-service-pipeline
+  taskRunTemplate:
+    serviceAccountName: pipeline
+  timeouts:
+    pipeline: 1h0m0s
+  workspaces:
+    - name: pipeline-frontend-service-workspace
+      volumeClaimTemplate:
+        metadata:
+          creationTimestamp: null
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+          storageClassName: k8s-storage-class
+          volumeMode: Filesystem
+        status: {}

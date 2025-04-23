@@ -1,0 +1,19 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: backend-service-webhook-route
+  namespace: devops
+  labels:
+    app.kubernetes.io/name: backend-service-webhook
+spec:
+  host: backend-service-webhook.apps.local
+  port:
+    targetPort: 8080
+  tls:
+    insecureEdgeTerminationPolicy: Redirect
+    termination: edge
+  to:
+    kind: Service
+    name: el-backend-service-webhook
+    weight: 100
+  wildcardPolicy: None

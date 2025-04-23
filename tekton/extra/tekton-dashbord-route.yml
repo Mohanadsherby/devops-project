@@ -1,0 +1,27 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  annotations:
+    meta.helm.sh/release-name: tekton-dashboard
+    meta.helm.sh/release-namespace: default
+  labels:
+    app.kubernetes.io/instance: tekton-dashboard
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: tekton-dashboard
+    app.kubernetes.io/version: 1.16.0
+  name: tekton-dashboard-route
+  namespace: tekton-pipelines
+  resourceVersion: "123265421"
+  uid: 713f7a7a-83ce-487b-ac66-e839ea8d9b2e
+spec:
+  host: tekton-dashboard.apps.local
+  port:
+    targetPort: 9097
+  tls:
+    insecureEdgeTerminationPolicy: Redirect
+    termination: edge
+  to:
+    kind: Service
+    name: tekton-dashboard
+    weight: 100
+  wildcardPolicy: None

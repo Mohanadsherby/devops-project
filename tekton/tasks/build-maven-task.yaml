@@ -1,0 +1,39 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: build-maven
+  namespace: devops
+spec:
+  description: Build the project dependencies
+  params:
+    - name: TASK_IMAGE
+      description: The container image to run the task
+      type: string
+    - name: REPO_DIR
+      description: The name of the directory to clone the repo into.
+      type: string
+  steps:
+    - computeResources: {}
+      image: $(params.TASK_IMAGE)
+      name: build-maven
+      script: |
+        #!/bin/bash
+        set -e
+
+        echo -e "\n# Install required packages"
+        microdnf install -y gzip tar
+
+        mkdir -p $(workspaces.output.path)/$(params.REPO_DIR)/target
+        chmod -R 777 $(workspaces.output.path)/$(params.REPO_DIR)/target
+        ls -lat 
+        pwd
+
+        cd $(workspaces.output.path)/$(params.REPO_DIR)/
+        chmod +x mvnw
+        ./mvnw clean install -DskipTests
+      securityContext:
+        runAsUser: 0
+      workingDir: $(workspaces.output.path)/$(params.REPO_DIR)
+  workspaces:
+    - description: Persistance Storage between Pods.
+      name: output

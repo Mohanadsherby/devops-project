@@ -1,0 +1,46 @@
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cleaner-role
+  namespace: devops
+rules:
+  - apiGroups: ["tekton.dev"]
+    resources: ["pipelineruns"]
+    verbs: ["delete", "get", "watch", "list"]
+--- 
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cleaner-to-cleaner-binding
+  namespace: devops
+roleRef:
+  kind: Role
+  name: cleaner
+  namespace: devops
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: tekton-sa
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pipeline-run-cleanup
+  namespace: devops
+spec:
+  schedule: 0 0 * * *
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - command:
+            - /bin/sh
+            - -c
+            - |
+              kubectl delete prs $(kubectl get prs -n devops| grep -i 2d | cut -f1 -d " ") -n devops
+            image: portainer/kubectl-shell:2.25.0
+            imagePullPolicy: IfNotPresent
+            name: pipeline-run-cleanup
+          restartPolicy: OnFailure

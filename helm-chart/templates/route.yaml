@@ -1,0 +1,32 @@
+{{- if .Values.route.enabled -}}
+{{- $fullName := .Values.fullnameOverride | default (include "octopilot.fullname" .) -}}
+{{- $svcPort := .Values.service.port -}}
+{{- if and .Values.route.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey .Values.route.annotations "kubernetes.io/ingress.class") }}
+  {{- $_ := set .Values.route.annotations "kubernetes.io/ingress.class" .Values.route.className}}
+  {{- end }}
+{{- end }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ .Values.nameOverride }}-route
+  labels:
+    {{- include "octopilot.labels" . | nindent 4 }}
+  {{- with .Values.route.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  to:
+    kind: Service
+    name: {{ .Values.nameOverride }}-service
+    weight: 100
+  port:
+    targetPort: {{ $svcPort }}
+  {{- if .Values.route.tls.enabled }}
+  tls:
+    insecureEdgeTerminationPolicy: Redirect
+    termination: edge
+  {{- end }}
+  host: {{ (index .Values.route.hosts 0).host }}
+{{- end }}

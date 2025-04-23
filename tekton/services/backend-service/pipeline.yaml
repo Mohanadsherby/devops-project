@@ -1,0 +1,62 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: backend-service-pipeline
+  namespace: devops
+spec:
+  params:
+    - name: BRANCH
+  tasks:
+    - name: clone-task
+      taskRef:
+        kind: Task
+        name: clone-task
+      params:
+        - name: TASK_IMAGE
+          value: alpine/git
+        - name: REPO_DIR
+          value: backend-service-repo
+        - name: BRANCH
+          value: $(params.BRANCH)
+      workspaces:
+        - name: output
+          workspace: pipeline-backend-service-workspace
+
+    - name: build-maven-task
+      runAfter:
+        - clone-task
+      taskRef:
+        kind: Task
+        name: build-maven-task
+      params:
+        - name: TASK_IMAGE
+          value: registry.access.redhat.com/ubi8/openjdk-21
+        - name: REPO_DIR
+          value: backend-service
+      workspaces:
+        - name: output
+          workspace: pipeline-backend-service-workspace
+
+    - name: build-docker-image
+      runAfter:
+        - build-maven-task
+      taskRef:
+        kind: Task
+        name: build-docker-image
+      params:
+        - name: TASK_IMAGE
+          value: quay.io/buildah/stable
+        - name: REPO_DIR
+          value: backend-service-repo
+        - name: APP_NAME
+          value: backend-service
+        - name: GH_TOKEN
+          value: $(secrets.github-token.token)
+        - name: APP_PORT
+          value: 8080
+      workspaces:
+        - name: output
+          workspace: pipeline-backend-service-workspace
+
+  workspaces:
+    - name: pipeline-backend-service-workspace

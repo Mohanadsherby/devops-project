@@ -1,0 +1,47 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: frontend-service-pipeline
+  namespace: devops
+spec:
+  params:
+    - name: BRANCH
+  tasks:
+    - name: clone-task
+      taskRef:
+        kind: Task
+        name: clone-task
+      params:
+        - name: TASK_IMAGE
+          value: alpine/git
+        - name: REPO_DIR
+          value: frontend-repo
+        - name: BRANCH
+          value: $(params.BRANCH)
+      workspaces:
+        - name: output
+          workspace: pipeline-frontend-service-workspace
+
+    - name: build-docker-image
+      runAfter:
+        - clone-task
+      taskRef:
+        kind: Task
+        name: build-docker-image
+      params:
+        - name: TASK_IMAGE
+          value: quay.io/buildah/stable
+        - name: REPO_DIR
+          value: frontend-repo
+        - name: APP_NAME
+          value: frontend
+        - name: GH_TOKEN
+          value: $(secrets.github-token.token)
+        - name: APP_PORT
+          value: 5173
+      workspaces:
+        - name: output
+          workspace: pipeline-frontend-service-workspace
+
+  workspaces:
+    - name: pipeline-frontend-service-workspace

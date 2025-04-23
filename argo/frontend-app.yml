@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: frontend-service
+  namespace: devops
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.dev/Osama-Yusuf/OctoPilot'
+    targetRevision: main
+    path: ./helm-chart/
+    helm:
+      valueFiles:
+        - values/frontend-values.yaml
+  destination:
+    server: 'https://api.apps.local:6443'   # ArgoCD route
+    namespace: default                      # the ns where the application will be deployed
+  syncPolicy:
+    syncOptions:
+    - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - RespectIgnoreDifferences=true
+

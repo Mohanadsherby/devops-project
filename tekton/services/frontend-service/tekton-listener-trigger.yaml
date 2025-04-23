@@ -1,0 +1,61 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: frontend-service-trigger-template
+  namespace: devops
+spec:
+  params:
+    - name: BRANCH
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: frontend-service-pipeline-run-
+        namespace: devops
+      spec:
+        pipelineRef:
+          name: frontend-service-pipeline
+        taskRunTemplate:
+          serviceAccountName: pipeline
+        timeouts:
+          pipeline: 1h0m0s
+        params:
+          - name: BRANCH
+            value: $(tt.params.BRANCH)
+        workspaces:
+          - name: pipeline-frontend-service-workspace
+            volumeClaimTemplate:
+              metadata:
+                creationTimestamp: null
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 1Gi
+                storageClassName: ibm-spectrum-scale-sample
+                volumeMode: Filesystem
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: frontend-service-trigger-binding
+  namespace: devops
+spec:
+  params:
+    - name: BRANCH
+      value: $(body.branch)
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: frontend-service-webhook
+  namespace: devops
+spec:
+  serviceAccountName: pipeline
+  triggers:
+    - name: frontend-service-trigger
+      bindings:
+        - ref: frontend-service-trigger-binding
+      template:
+        ref: frontend-service-trigger-template

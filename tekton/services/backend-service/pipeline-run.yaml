@@ -1,0 +1,30 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  annotations:
+    chains.tekton.dev/signed: 'true'
+  name: backend-service-pipeline-run-24
+  namespace: devops
+  labels:
+    tekton.dev/pipeline: backend-service-pipeline
+spec:
+  pipelineRef:
+    name: backend-service-pipeline
+  taskRunTemplate:
+    serviceAccountName: pipeline
+  timeouts:
+    pipeline: 1h0m0s
+  workspaces:
+    - name: pipeline-backend-service-workspace
+      volumeClaimTemplate:
+        metadata:
+          creationTimestamp: null
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+          storageClassName: k8s-storage-class
+          volumeMode: Filesystem
+        status: {}

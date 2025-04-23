@@ -1,0 +1,109 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: build-docker-image
+  namespace: devops
+spec:
+  description: Compile Java application with Maven
+  params:
+    - name: TASK_IMAGE
+      description: The container image to run the task
+      type: string
+    - name: REPO_DIR
+      description: The name of the directory to clone the repo into.
+      type: string
+    - name: APP_NAME
+      description: The name of the directory to clone the repo into.
+      type: string
+    - name: GH_TOKEN
+      description: The GH Token for push auth.
+      type: string
+    - name: APP_PORT
+      description: The port of the application.
+      type: string
+  steps:
+    - name: build-docker-image
+      image: $(params.TASK_IMAGE)
+      script: |
+        #!/bin/bash
+        set -e
+
+        echo -e "\n# Install required packages"
+        dnf install -y git yq
+
+        echo -e "\n# Navigate to the repo directory"
+        cd $(workspaces.output.path)/$(params.REPO_DIR)
+        pwd
+        ls -alt
+
+        export REGISTRY_URL=image-registry.openshift-image-registry.svc:5000
+        export COMMIT_ID=$(git rev-parse --short HEAD)
+        export TIMESTAMP=$(date +%Y.%m.%d-%H.%M.%S)
+        export TAG=${COMMIT_ID}--${TIMESTAMP}
+        export IMAGE_NAME=$REGISTRY_URL/devops/$(params.APP_NAME)
+
+        echo -e "\nImage Name: \n$IMAGE_NAME:$TAG"
+
+        echo -e "\n# Build the docker image"
+        buildah bud -f Dockerfile -t $IMAGE_NAME:$TAG .
+
+        echo -e "\n# Build and push the docker image to registry"
+        TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+        buildah login --tls-verify=false --username unused --password $TOKEN $REGISTRY_URL
+        buildah push --tls-verify=false $IMAGE_NAME:$TAG
+
+        ###########################################
+        # Update helm chart values and push to GH #
+        ###########################################
+
+        echo -e "\n# Navigate to the helm chart directory"
+        git clone "https://$(params.GH_TOKEN)@github.com/apps/helm-chart.git" $(workspaces.output.path)/helm-chart
+        cd $(workspaces.output.path)/helm-chart 
+        git config --global user.email "tekton@tekton.com"
+        git config --global user.name "tekton"
+        
+        # get the repo dir without -service
+        echo -e "\n# Define values variables"
+        export APP_NAME=$(echo $(params.APP_NAME) | sed 's/-service//')
+        export REPO_VALUES_YAML=$(workspaces.output.path)/helm-chart/values/$APP_NAME-values.yaml
+        export HOST=$APP_NAME.apps.local
+        export APP_PORT=$(params.APP_PORT)
+
+        # check if the directory exists
+        if [ -f "$REPO_VALUES_YAML" ]; then
+            echo "File $REPO_VALUES_YAML exists."
+        else
+            echo "File $REPO_VALUES_YAML does not exist, Creating it."
+            cp $(workspaces.output.path)/helm-chart/values.yaml $REPO_VALUES_YAML 
+        fi
+
+        echo -e "\n# Update the values.yaml file"
+        echo -e "# Updates the name in values.yaml"
+        yq e ".nameOverride = \"${APP_NAME}\"" -i $REPO_VALUES_YAML
+
+        echo -e "\n# Updates the image in values.yaml"
+        yq e ".image.repository = \"${IMAGE_NAME}\"" -i $REPO_VALUES_YAML
+
+        echo -e "\n# Updates the tag in values.yaml"
+        yq e ".image.tag = \"${TAG}\"" -i $REPO_VALUES_YAML
+
+        echo -e "\n# Updates the host in values.yaml"
+        yq e ".route.hosts[0].host = \"${HOST}\"" -i $REPO_VALUES_YAML
+
+        echo -e "\n# Updates the port in values.yaml"
+        yq eval ".service.port = \"${APP_PORT}\"" -i $REPO_VALUES_YAML
+
+        echo -e "\n# Updates the targetPort in values.yaml"
+        yq eval ".service.targetPort = \"${APP_PORT}\"" -i $REPO_VALUES_YAML
+
+        echo -e "\n# Add changes to git"
+        git add .
+        git commit -m "Tekton ${APP_NAME} pipeline updated the image name, tag, and host"
+        git push
+      securityContext:
+        privileged: true
+      workingDir: $(workspaces.output.path)/$(params.REPO_DIR)
+
+  workspaces:
+    - description: Persistent storage for cloning repository and transferring data
+      name: output
